@@ -9,67 +9,67 @@ function App() {
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
   const [year, setYear] = useState("");
-  const [students, setStudents] = useState(() => {
-    const savedStudents = localStorage.getItem("students");
-    return savedStudents ? JSON.parse(savedStudents) : [];
-  });
+  const [students, setStudents] = useState([]);
   const [edit, setEdit] = useState(null);
   const [error, setError] = useState("");
 
-  function handleSubmit(e) {
+  async function handleSubmit(e) {
     e.preventDefault();
 
-    if (
-      name.trim() === "" ||
-      course === "" ||
-      department === "" ||
-      year === "" ||
-      email.trim() === "" ||
-      phone.trim() === ""
-    ) {
-      setError("Please enter the details");
-      return;
-    }
 
+    try {
+      const studentData = {
+        name: name.trim(),
+        course,
+        department,
+        year,
+        email: email.trim(),
+        phone: phone.trim(),
+      };
 
-    if (edit === null) {
-      const newId =
-        students.length === 0 ? 1 : Math.max(...students.map((student) => student.id)) + 1;
-      const newStudent = {
-        id: newId,
-        name: name,
-        course: course,
-        department: department,
-        year: year,
-        email: email,
-        phone: phone,
+      const isEditing = edit !== null;
+
+      const response = await fetch(
+        isEditing
+          ? `http://localhost:5000/api/students/${edit}`
+          : "http://localhost:5000/api/students",
+        {
+          method: isEditing ? "PUT" : "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(studentData),
+        }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to save student");
       }
-      setStudents([...students, newStudent]);
-    } else {
-      const updatedStudents = students.map((student) =>
-        student.id === edit
-          ? {
-            ...student,
-            name: name,
-            course: course,
-            department: department,
-            year: year,
-            email: email,
-            phone: phone,
-          }
-          : student
-      )
-      setStudents(updatedStudents);
+
+      if (isEditing) {
+        setStudents((current) =>
+          current.map((student) =>
+            student.id === edit ? result : student
+          )
+        );
+      } else {
+        setStudents((current) => [...current, result]);
+      }
+
+      setName("");
+      setCourse("");
+      setDepartment("");
+      setYear("");
+      setEmail("");
+      setPhone("");
+      setEdit(null);
+      setError("");
+    } catch (error) {
+      setError(error.message || "Could not connect to the server");
     }
 
-    setName("");
-    setCourse("");
-    setDepartment("");
-    setYear("");
-    setEmail("");
-    setPhone("");
-    setEdit(null);
-    setError("");
   }
 
   function handleEdit(student) {
@@ -82,16 +82,46 @@ function App() {
     setPhone(student.phone);
   }
 
-  function handleDelete(id) {
-    const updateStudents = students.filter(
-      (student) => student.id !== id
-    )
-    setStudents(updateStudents);
+  async function handleDelete(id) {
+    try {
+      const response = await fetch(
+        `http://localhost:5000/api/students/${id}`,
+        { method: "DELETE" }
+      );
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Unable to delete student");
+      }
+
+      setStudents((current) =>
+        current.filter((student) => student.id !== id)
+      );
+    } catch (error) {
+      setError(error.message || "Could not delete student");
+    }
   }
 
   useEffect(() => {
-    localStorage.setItem("students", JSON.stringify(students));
-  }, [students]);
+    async function fetchStudents() {
+      try {
+        const response = await fetch(
+          "http://localhost:5000/api/students"
+        );
+        if (!response.ok) {
+          throw new Error("Failed to fetch students");
+        }
+
+        const data = await response.json();
+        setStudents(data);
+      } catch (error) {
+        console.error("Fetch error:", error);
+        setError(error.message);
+      }
+    }
+    fetchStudents();
+  }, [])
 
 
   return (
