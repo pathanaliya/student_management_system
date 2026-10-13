@@ -6,7 +6,6 @@ import db from "./db.js";
 dotenv.config();
 
 const app = express();
-// app.use(cors({origin: "http://localhost:5174"}));
 app.use(cors());
 app.use(express.json());
 
